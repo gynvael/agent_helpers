@@ -190,9 +190,12 @@ class ChatGPT_Agent:
     self.chatgpt_name = name
 
   def add_system_message(self, msg):
+    self.add_message("system", msg)
+
+  def add_message(self, role, content):
     self.chatgpt_messages.append({
-        "role": "system",
-        "content": msg.strip()
+        "role": role,
+        "content": content.strip()
     })
 
   def reset(self):
@@ -250,10 +253,19 @@ class ChatGPT_Agent:
 
     # Pass the context to ChatGPT.
     #pprint(self.chatgpt_functions)
-    r = get_default_openai_client().chat.completions.create(model=self.chatgpt_model,
-    messages=self.chatgpt_messages,
-    functions=self.chatgpt_functions,
-    function_call=function_call)
+
+    if not self.chatgpt_functions:
+      r = get_default_openai_client().chat.completions.create(
+          model=self.chatgpt_model,
+          messages=self.chatgpt_messages
+      )
+    else:
+      r = get_default_openai_client().chat.completions.create(
+          model=self.chatgpt_model,
+          messages=self.chatgpt_messages,
+          functions=self.chatgpt_functions,
+          function_call=function_call
+      )
 
     # TODO: add logging
     #pprint(r)
