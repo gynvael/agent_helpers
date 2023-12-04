@@ -185,6 +185,32 @@ class ChatGPT_Agent:
         self.chatgpt_api_functions.values()
     ]
 
+  def load_state_from_json_file(self, fname):
+    """Loads the message log/state from the JSON file and replaces the current
+    one with the loaded one.
+
+    Returns:
+      The whole loaded JSON in case the agent wants to load something more
+      manually.
+
+    """
+    with open(fname) as f:
+      state = json.load(f)
+
+    chatgpt_messages = state.get("chatgpt_messages")
+
+    if chatgpt_messages is None:
+      raise Exception("Missing 'chatgpt_messages' key in loaded state.")
+
+    self.chatgpt_messages = chatgpt_messages
+    return state
+
+  def store_state_in_json_file(self, fname):
+    with open(fname, "w") as f:
+      json.dump({
+          "chatgpt_messages": self.chatgpt_messages
+      }, f, indent=4)
+
   def set_name(self, name):
     # This name is used in log name, so make it filesystem friendly.
     self.chatgpt_name = name
@@ -277,8 +303,9 @@ class ChatGPT_Agent:
     response_content = response_message.content
 
     # Add reply to the context.
-
-    self.chatgpt_messages.append(response_message)
+    self.chatgpt_messages.append(
+        response_message.model_dump(exclude_unset=True)
+    )
 
     cost, total_cost = update_billing(
         self.chatgpt_model, r.usage.prompt_tokens, r.usage.completion_tokens
@@ -293,6 +320,7 @@ class ChatGPT_Agent:
       # TODO: Do I want to retry in that case? Maybe even remove the last
       # message? Should there be a retry counter?
 
+      # TODO: json.decoder.JSONDecodeError
       func_args = json.loads(func_call.arguments, strict=False)
       func_name = func_call.name
 
@@ -310,6 +338,8 @@ class ChatGPT_Agent:
       jsonschema.validate(instance=func_args, schema=func_desc)
 
       # Call the function.
+      # TODO: This sometimes throws:
+      # TypeError: <function name> missing 1 required positional argument: 'name'
       ret = func(**func_args)
       self.chatgpt_messages.append({
           "role": "function",
