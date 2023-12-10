@@ -170,6 +170,8 @@ class ChatGPT_Agent:
     self.chatgpt_model = model
     self.chatgpt_name = "generic_agent"
     self.chatgpt_api_functions = {}
+    self.debug = False
+    self.the_end = False  # A function can set this to get out of the loop.
 
     for field in dir(self):
       f = getattr(self, field)
@@ -228,15 +230,18 @@ class ChatGPT_Agent:
     self.chatgpt_messages = []
 
   def invoke(self, msg=None, role="user", call_function=None):
+    self.the_end = False
     replies = []
 
-    while True:  # TODO: limit this?
+    while not self.the_end:  # TODO: limit this?
       # TODO: Try except.
 
       response = self.invoke_worker(msg, role, call_function)
 
       if response.message.content:
         replies.append(response.message.content)
+        if self.debug:
+          print(f"{self.chatgpt_name} \x1b[1;31mSays: \x1b[m\x1b[31m{response.message.content}\x1b[m")
 
       # Resetting call_function since after the first iteration we don't want
       # ChatGPT to call the function anymore.
@@ -336,6 +341,9 @@ class ChatGPT_Agent:
 
       # This will raise an exception ValidationError.
       jsonschema.validate(instance=func_args, schema=func_desc)
+
+      if self.debug:
+        print(f"{self.chatgpt_name} \x1b[1;33mCalling function: {func_name}({func_args})\x1b[m")
 
       # Call the function.
       # TODO: This sometimes throws:
